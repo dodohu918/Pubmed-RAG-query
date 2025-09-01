@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PubMed RAG Search - Enhanced</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 2px,
+                rgba(255,255,255,0.03) 2px,
+                rgba(255,255,255,0.03) 4px
+            );
+            animation: slide 20s linear infinite;
+        }
+        
+        @keyframes slide {
+            0% { transform: translateX(-50px) translateY(-50px); }
+            100% { transform: translateX(0px) translateY(0px); }
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .main-content {
+            padding: 40px 30px;
+        }
+        
+        /* Search Section */
+        .search-section {
+            margin-bottom: 40px;
+        }
+        
+        .search-form {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .search-input-container {
+            position: relative;
+            display: flex;
+            background: white;
+            border: 3px solid #e9ecef;
+            border-radius: 50px;
+            padding: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .search-input-container:focus-within {
+            border-color: #667eea;
+            box-shadow: 0 4px 25px rgba(102, 126, 234, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        #queryInput {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            background: transparent;
+        }
+        
+        #searchBtn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+        
+        #searchBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        #searchBtn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Search Suggestions */
+        .search-suggestions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .suggestion-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .suggestion-chip {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .suggestion-chip:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        /* Search History */
+        .search-history {
+            background: #e9ecef;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .history-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .history-item {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #dee2e6;
+        }
+        
+        .history-item:hover {
+            background: #6c757d;
+            color: white;
+        }
+        
+        /* Loading Animation */
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            display: none;
+        }
+        
+        .loading-container {
+            display: inline-block;
+            position: relative;
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        .loading-dots {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin-top: 10px;
+        }
+        
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+            animation: bounce 1.4s ease-in-out infinite both;
+        }
+        
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            } 40% {
+                transform: scale(1);
+            }
+        }
+        
+        /* AI Answer */
+        .ai-answer {
+            background: linear-gradient(135deg, #e8f5e8, #f0f9ff);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-left: 6px solid #10b981;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ai-answer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), transparent);
+            border-radius: 0 0 0 100px;
+        }
+        
+        .ai-answer-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .ai-answer-header h3 {
+            margin: 0;
+            color: #065f46;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+        
+        .ai-answer-header .ai-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+        }
+        
+        .ai-answer-text {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            margin-bottom: 20px;
+            color: #374151;
+        }
+        
+        .confidence-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .confidence-high {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #34d399;
+        }
+        
+        .confidence-medium {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fbbf24;
+        }
+        
+        .confidence-low {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #f87171;
+        }
+        
+        .ai-metadata {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        /* Follow-up Section */
+        .followup-section {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .followup-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .followup-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .followup-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .followup-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .followup-btn {
+            padding: 12px 20px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .followup-btn:hover:not(:disabled) {
+            background: #4f46e5;
+            transform: translateY(-1px);
+        }
+        
+        /* Citations */
+        .citations {
+            background: #f9fafb;
+            border-radius: 16px;
+            padding: 25px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .citations-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .citations-header h4 {
+            margin: 0;
+            color: #374151;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .citation {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .citation:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .citation-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        .citation-authors {
+            color: #6b7280;
+            font-style: italic;
+            margin-bottom: 5px;
+        }
+        
+        .citation-journal {
+            color: #9ca3af;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        
+        .citation-tags {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .citation-tag {
+            background: #f3f4f6;
+            color: #6b7280;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .abstract-toggle {
+            color: #6366f1;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: color 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .abstract-toggle:hover {
+            color: #4f46e5;
+        }
+        
+        .abstract {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 3px solid #6366f1;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #374151;
+        }
+        
+        /* Export Options */
+        .export-section {
+            background: #fffbeb;
+            border: 1px solid #fed7aa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        
+        .export-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        .export-btn {
+            padding: 8px 16px;
+            border: 1px solid #f59e0b;
+            background: white;
+            color: #d97706;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .export-btn:hover {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .main-content {
+                padding: 30px 20px;
+            }
+            
+            .search-input-container {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            #searchBtn {
+                align-self: stretch;
+            }
+            
+            .suggestion-chips,
+            .history-items {
+                justify-content: center;
+            }
+        }
+        
+        /* Utility Classes */
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🧬 PubMed RAG Search</h1>
+            <p>AI-powered medical and scientific literature research assistant</p>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Search Section -->
+            <div class="search-section">
+                <div class="search-form">
+                    <div class="search-input-container">
+                        <input type="text" 
+                               id="queryInput" 
+                               placeholder="Ask any medical or scientific question..." 
+                               autocomplete="off">
+                        <button id="searchBtn" onclick="searchPubMed()">
+                            <span id="searchBtnText">Search</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Search Suggestions -->
+                <div class="search-suggestions">
+                    <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                        <span style="font-weight: 600; color: #374151; margin-right: 10px;">💡 Try these examples:</span>
+                    </div>
+                    <div class="suggestion-chips">
+                        <span class="suggestion-chip" onclick="useQuery('What causes type 2 diabetes?')">What causes type 2 diabetes?</span>
+                        <span class="suggestion-chip" onclick="useQuery('Latest COVID-19 vaccine research')">Latest COVID-19 vaccine research</span>
+                        <span class="suggestion-chip" onclick="useQuery('Mediterranean diet health benefits')">Mediterranean diet benefits</span>
+                        <span class="suggestion-chip" onclick="useQuery('Exercise effects on mental health')">Exercise and mental health</span>
+                        <span class="suggestion-chip" onclick="useQuery('Cancer immunotherapy advances')">Cancer immunotherapy</span>
+                        <span class="suggestion-chip" onclick="useQuery('Sleep deprivation health effects')">Sleep and health</span>
+                    </div>
+                </div>
+                
+                <!-- Search History -->
+                <div class="search-history" id="searchHistory" style="display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-weight: 600; color: #6b7280;">🕒 Recent Searches</span>
+                        <button onclick="clearHistory()" style="background: none; border: none; color: #6b7280; cursor: pointer; font-size: 12px;">Clear</button>
+                    </div>
+                    <div class="history-items" id="historyItems"></div>
+                </div>
+            </div>
+            
+            <!-- Loading Animation -->
+            <div class="loading" id="loading">
+                <div class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <p style="color: #6b7280; font-size: 1.1rem; margin: 0;"><span id="loadingText">Searching PubMed and generating AI answer...</span></p>
+                    <div class="loading-dots">
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Results -->
+            <div class="results" id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        const API_BASE = 'http://127.0.0.1:5000';
+        let lastSearchData = null;
+        let searchHistory = JSON.parse(localStorage.getItem('pubmed_search_history') || '[]');
+        
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSearchHistory();
+            setupKeyboardShortcuts();
+            setupPlaceholderRotation();
+        });
+        
+        // Keyboard shortcuts
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', function(e) {
+                // Ctrl/Cmd + K to focus search
+                if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                    e.preventDefault();
+                    document.getElementById('queryInput').focus();
+                }
+                
+                // Enter in search input
+                document.getElementById('queryInput').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        searchPubMed();
+                    }
+                });
+            });
+        }
+        
+        // Rotate placeholder text
+        function setupPlaceholderRotation() {
+            const placeholders = [
+                "Ask any medical or scientific question...",
+                "What are the latest treatments for...?",
+                "How does... affect the human body?",
+                "What causes... disease?",
+                "Are there any side effects of...?",
+                "What research shows about...?",
+            ];
+            
+            let currentIndex = 0;
+            const input = document.getElementById('queryInput');
+            
+            setInterval(() => {
+                if (input !== document.activeElement && !input.value) {
+                    input.placeholder = placeholders[currentIndex];
+                    currentIndex = (currentIndex + 1) % placeholders.length;
+                }
+            }, 3000);
+        }
+        
+        // Use suggested query
+        function useQuery(query) {
+            document.getElementById('queryInput').value = query;
+            document.getElementById('queryInput').focus();
+        }
+        
+        // Update search history display
+        function updateSearchHistory() {
+            const historySection = document.getElementById('searchHistory');
+            const historyItems = document.getElementById('historyItems');
+            
+            if (searchHistory.length === 0) {
+                historySection.style.display = 'none';
+                return;
+            }
+            
+            historySection.style.display = 'block';
+            historyItems.innerHTML = '';
+            
+            searchHistory.slice(0, 8).forEach(query => {
+                const item = document.createElement('span');
+                item.className = 'history-item';
+                item.textContent = query.length > 40 ? query.substring(0, 40) + '...' : query;
+                item.onclick = () => useQuery(query);
+                historyItems.appendChild(item);
+            });
+        }
+        
+        // Add to search history
+        function addToSearchHistory(query) {
+            // Remove if already exists
+            searchHistory = searchHistory.filter(q => q !== query);
+            // Add to beginning
+            searchHistory.unshift(query);
+            // Keep only last 10
+            searchHistory = searchHistory.slice(0, 10);
+            // Save to localStorage
+            localStorage.setItem('pubmed_search_history', JSON.stringify(searchHistory));
+            updateSearchHistory();
+        }
+        
+        // Clear search history
+        function clearHistory() {
+            if (confirm('Clear all search history?')) {
+                searchHistory = [];
+                localStorage.removeItem('pubmed_search_history');
+                updateSearchHistory();
+            }
+        }
+        
+        // Main search function
+        async function searchPubMed() {
+            const query = document.getElementById('queryInput').value.trim();
+            if (!query) {
+                // Pulse animation to indicate empty input
+                document.getElementById('queryInput').classList.add('pulse');
+                setTimeout(() => document.getElementById('queryInput').classList.remove('pulse'), 2000);
+                return;
+            }
+            
+            // UI updates
+            const searchBtn = document.getElementById('searchBtn');
+            const searchBtnText = document.getElementById('searchBtnText');
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const loadingText = document.getElementById('loadingText');
+            
+            searchBtn.disabled = true;
+            searchBtnText.textContent = 'Searching...';
+            loading.style.display = 'block';
+            results.innerHTML = '';
+            
+            // Random loading messages
+            const loadingMessages = [
+                'Searching through millions of research papers...',
+                'Analyzing scientific literature...',
+                'Generating AI-powered insights...',
+                'Processing medical research data...',
+                'Synthesizing evidence-based information...'
+            ];
+            
+            let messageIndex = 0;
+            const loadingInterval = setInterval(() => {
+                loadingText.textContent = loadingMessages[messageIndex];
+                messageIndex = (messageIndex + 1) % loadingMessages.length;
+            }, 2000);
+            
+            try {
+                const response = await fetch(`${API_BASE}/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query, max_results: 5 })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                lastSearchData = data;
+                
+                // Add to search history
+                addToSearchHistory(query);
+                
+                // Display results with animation
+                displayResults(data);
+                
+            } catch (error) {
+                console.error('Search error:', error);
+                results.innerHTML = `
+                    <div style="background: #fee2e2; color: #991b1b; padding: 20px; border-radius: 12px; text-align: center;">
+                        <h3>🚫 Search Error</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p style="font-size: 0.9rem; margin-top: 15px;">Make sure your backend server is running at ${API_BASE}</p>
+                    </div>
+                `;
+            } finally {
+                clearInterval(loadingInterval);
+                searchBtn.disabled = false;
+                searchBtnText.textContent = 'Search';
+                loading.style.display = 'none';
+            }
+        }
+        
+        // Display search results
+        function displayResults(data) {
+            const results = document.getElementById('results');
+            let html = '';
+            
+            // AI Answer Section
+            if (data.answer) {
+                html += `
+                    <div class="ai-answer fade-in">
+                        <div class="ai-answer-header">
+                            <span class="ai-icon">🤖</span>
+                            <h3>AI Answer ${data.rag_enabled ? '(Powered by GPT-4)' : '(Basic Mode)'}</h3>
+                        </div>
+                        
+                        <div class="ai-answer-text">${data.answer}</div>
+                        
+                        ${data.ai_metadata ? `
+                            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                                <span class="confidence-badge confidence-${data.ai_metadata.confidence}">
+                                    ${data.ai_metadata.confidence} confidence
+                                </span>
+                            </div>
+                            
+                            <div class="ai-metadata">
+                                <span>📚 Sources: ${data.ai_metadata.sources_used} articles</span>
+                                <span>💭 ${data.ai_metadata.reasoning}</span>
+                                ${data.ai_metadata.tokens_used ? `<span>🔤 Tokens: ${data.ai_metadata.tokens_used}</span>` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                // Follow-up section
+                if (data.rag_enabled && data.articles && data.articles.length > 0) {
+                    html += `
+                        <div class="followup-section fade-in">
+                            <div class="followup-header">
+                                <h4 style="margin: 0; color: #374151;">💬 Ask a follow-up question</h4>
+                            </div>
+                            <p style="color: #6b7280; font-size: 14px; margin-bottom: 15px;">
+                                Ask related questions using the same research context
+                            </p>
+                            <div class="followup-form">
+                                <input type="text" 
+                                       class="followup-input" 
+                                       id="followupInput" 
+                                       placeholder="e.g., What are the side effects? How effective is it for children?"
+                                       onkeypress="if(event.key==='Enter') askFollowUp()">
+                                <button class="followup-btn" id="followupBtn" onclick="askFollowUp()">Ask</button>
+                            </div>
+                            <div id="followupAnswers"></div>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Export Section
+            if (data.articles && data.articles.length > 0) {
+                html += `
+                    <div class="export-section fade-in">
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <span style="font-weight: 600; color: #92400e;">📤 Export Results</span>
+                        </div>
+                        <p style="color: #92400e; font-size: 14px; margin-bottom: 15px;">Save your research findings in various formats</p>
+                        <div class="export-options">
+                            <button class="export-btn" onclick="exportResults('txt')">📄 Text File</button>
+                            <button class="export-btn" onclick="exportResults('json')">📋 JSON</button>
+                            <button class="export-btn" onclick="exportResults('csv')">📊 CSV</button>
+                            <button class="export-btn" onclick="copyResults()">📋 Copy to Clipboard</button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Citations Section
+            if (data.articles && data.articles.length > 0) {
+                html += `
+                    <div class="citations fade-in">
+                        <div class="citations-header">
+                            <h4>📚 Research Sources (${data.articles.length} articles from PubMed)</h4>
+                        </div>
+                `;
+                
+                data.articles.forEach((article, index) => {
+                    const hasAbstract = article.abstract && 
+                                      article.abstract !== 'Abstract not available' && 
+                                      article.abstract.length > 50;
+                    
+                    const authors = Array.isArray(article.authors) ? 
+                                   article.authors.slice(0, 3).join(', ') + 
+                                   (article.authors.length > 3 ? ' et al.' : '') : 
+                                   'Authors not available';
+                    
+                    html += `
+                        <div class="citation" onclick="toggleCitation(${index})">
+                            <div class="citation-title">${index + 1}. ${article.title}</div>
+                            <div class="citation-authors">${authors}</div>
+                            <div class="citation-journal">
+                                ${article.journal || 'Journal not available'} • ${article.pub_date || 'Date not available'}
+                            </div>
+                            
+                            <div class="citation-tags">
+                                <span class="citation-tag">PMID: ${article.pmid}</span>
+                                ${article.similarity_score ? `<span class="citation-tag">Similarity: ${article.similarity_score}</span>` : ''}
+                                <span class="citation-tag">${hasAbstract ? 'Has Abstract' : 'No Abstract'}</span>
+                            </div>
+                            
+                            ${hasAbstract ? `
+                                <div class="abstract-toggle" onclick="event.stopPropagation(); toggleAbstract(${index})">
+                                    <span id="toggle-${index}">📄 Show Abstract</span>
+                                </div>
+                                <div class="abstract hidden" id="abstract-${index}">
+                                    <strong>Abstract:</strong> ${article.abstract}
+                                    <br><br>
+                                    <a href="${article.url || '#'}" target="_blank" style="color: #6366f1; text-decoration: none; font-weight: 500;">
+                                        🔗 View on PubMed →
+                                    </a>
+                                </div>
+                            ` : `
+                                <div style="color: #9ca3af; font-size: 13px; margin-top: 10px;">
+                                    📄 Abstract not available • 
+                                    <a href="${article.url || '#'}" target="_blank" style="color: #6366f1;">View on PubMed</a>
+                                </div>
+                            `}
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+            }
+            
+            results.innerHTML = html;
+            
+            // Smooth scroll to results
+            setTimeout(() => {
+                results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300);
+        }
+        
+        // Toggle citation expansion
+        function toggleCitation(index) {
+            // This function can be used to expand/collapse entire citations if needed
+            // Currently just visual feedback
+        }
+        
+        // Toggle abstract visibility
+        function toggleAbstract(index) {
+            const abstract = document.getElementById(`abstract-${index}`);
+            const toggle = document.getElementById(`toggle-${index}`);
+            
+            if (abstract.classList.contains('hidden')) {
+                abstract.classList.remove('hidden');
+                abstract.classList.add('fade-in');
+                toggle.textContent = '📄 Hide Abstract';
+            } else {
+                abstract.classList.add('hidden');
+                toggle.textContent = '📄 Show Abstract';
+            }
+        }
+        
+        // Ask follow-up question
+        async function askFollowUp() {
+            const followupInput = document.getElementById('followupInput');
+            const query = followupInput.value.trim();
+            
+            if (!query) {
+                followupInput.classList.add('pulse');
+                setTimeout(() => followupInput.classList.remove('pulse'), 2000);
+                return;
+            }
+            
+            if (!lastSearchData || !lastSearchData.articles) {
+                alert('Please perform a search first');
+                return;
+            }
+            
+            const followupBtn = document.getElementById('followupBtn');
+            const originalText = followupBtn.textContent;
+            followupBtn.disabled = true;
+            followupBtn.textContent = 'Thinking...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/ask`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        query: query,
+                        articles: lastSearchData.articles
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                displayFollowUpAnswer(data);
+                followupInput.value = '';
+                
+            } catch (error) {
+                console.error('Follow-up error:', error);
+                alert('Error generating follow-up answer: ' + error.message);
+            } finally {
+                followupBtn.disabled = false;
+                followupBtn.textContent = originalText;
+            }
+        }
+        
+        // Display follow-up answer
+        function displayFollowUpAnswer(data) {
+            const followupAnswers = document.getElementById('followupAnswers');
+            
+            const answerHtml = `
+                <div class="ai-answer fade-in" style="margin-top: 20px; background: linear-gradient(135deg, #f0f9ff, #e0f2fe);">
+                    <div class="ai-answer-header">
+                        <span class="ai-icon">💭</span>
+                        <h4 style="margin: 0; color: #0369a1;">Follow-up: "${data.query}"</h4>
+                    </div>
+                    
+                    <div class="ai-answer-text" style="font-size: 1rem;">${data.answer}</div>
+                    
+                    <div class="ai-metadata">
+                        <span class="confidence-badge confidence-${data.ai_metadata.confidence}">
+                            ${data.ai_metadata.confidence} confidence
+                        </span>
+                        <span style="color: #6b7280;">📚 ${data.ai_metadata.sources_used} sources • ${data.ai_metadata.reasoning}</span>
+                    </div>
+                </div>
+            `;
+            
+            followupAnswers.insertAdjacentHTML('beforeend', answerHtml);
+        }
+        
+        // Export functions
+        function exportResults(format) {
+            if (!lastSearchData || !lastSearchData.articles) {
+                alert('No results to export. Please perform a search first.');
+                return;
+            }
+            
+            const data = lastSearchData;
+            const timestamp = new Date().toISOString().split('T')[0];
+            const filename = `pubmed_search_${timestamp}`;
+            
+            switch (format) {
+                case 'txt':
+                    exportToText(data, filename);
+                    break;
+                case 'json':
+                    exportToJSON(data, filename);
+                    break;
+                case 'csv':
+                    exportToCSV(data, filename);
+                    break;
+            }
+        }
+        
+        function exportToText(data, filename) {
+            let content = `PubMed RAG Search Results\n`;
+            content += `Query: ${data.query}\n`;
+            content += `Date: ${new Date().toLocaleDateString()}\n`;
+            content += `Total Articles: ${data.articles.length}\n\n`;
+            
+            if (data.answer) {
+                content += `AI ANSWER:\n${data.answer}\n\n`;
+            }
+            
+            content += `SOURCES:\n`;
+            data.articles.forEach((article, index) => {
+                content += `${index + 1}. ${article.title}\n`;
+                content += `   Authors: ${Array.isArray(article.authors) ? article.authors.join(', ') : 'N/A'}\n`;
+                content += `   Journal: ${article.journal} (${article.pub_date})\n`;
+                content += `   PMID: ${article.pmid}\n`;
+                if (article.abstract && article.abstract !== 'Abstract not available') {
+                    content += `   Abstract: ${article.abstract}\n`;
+                }
+                content += `   URL: ${article.url}\n\n`;
+            });
+            
+            downloadFile(content, `${filename}.txt`, 'text/plain');
+        }
+        
+        function exportToJSON(data, filename) {
+            const exportData = {
+                query: data.query,
+                timestamp: new Date().toISOString(),
+                ai_answer: data.answer,
+                ai_metadata: data.ai_metadata,
+                search_metadata: data.search_metadata,
+                articles: data.articles
+            };
+            
+            const content = JSON.stringify(exportData, null, 2);
+            downloadFile(content, `${filename}.json`, 'application/json');
+        }
+        
+        function exportToCSV(data, filename) {
+            const headers = ['Title', 'Authors', 'Journal', 'Publication Date', 'PMID', 'URL', 'Abstract'];
+            let csv = headers.join(',') + '\n';
+            
+            data.articles.forEach(article => {
+                const row = [
+                    `"${(article.title || '').replace(/"/g, '""')}"`,
+                    `"${(Array.isArray(article.authors) ? article.authors.join('; ') : '').replace(/"/g, '""')}"`,
+                    `"${(article.journal || '').replace(/"/g, '""')}"`,
+                    `"${(article.pub_date || '').replace(/"/g, '""')}"`,
+                    article.pmid || '',
+                    article.url || '',
+                    `"${(article.abstract || '').replace(/"/g, '""')}"`
+                ];
+                csv += row.join(',') + '\n';
+            });
+            
+            downloadFile(csv, `${filename}.csv`, 'text/csv');
+        }
+        
+        function copyResults() {
+            if (!lastSearchData) {
+                alert('No results to copy. Please perform a search first.');
+                return;
+            }
+            
+            let content = `Query: ${lastSearchData.query}\n\n`;
+            if (lastSearchData.answer) {
+                content += `AI Answer: ${lastSearchData.answer}\n\n`;
+            }
+            
+            content += `Sources (${lastSearchData.articles.length} articles):\n`;
+            lastSearchData.articles.forEach((article, index) => {
+                content += `${index + 1}. ${article.title}\n`;
+                content += `   ${article.journal} (${article.pub_date}) - PMID: ${article.pmid}\n\n`;
+            });
+            
+            navigator.clipboard.writeText(content).then(() => {
+                // Show temporary success message
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                btn.style.background = '#10b981';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            }).catch(() => {
+                alert('Failed to copy to clipboard');
+            });
+        }
+        
+        function downloadFile(content, filename, contentType) {
+            const blob = new Blob([content], { type: contentType });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
